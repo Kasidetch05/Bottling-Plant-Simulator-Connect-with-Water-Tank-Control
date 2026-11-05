@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bottling plant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground: #e3e5e1;
+    --panel: #f4f5f2;
+    --sunk: #d6d9d4;
+    --line: #6c727a;
+    --ink: #1e2226;
+    --ink-soft: #565c63;
+    --water: #2f6fb0;
+    --run: #2e8540;
+    --wait: #c98400;
+    --alarm: #c0392b;
+    --off: #b9bdb7;
+    --display: "Barlow Semi Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+    --body: "Atkinson Hyperlegible", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 15px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  header.bar {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    padding: 10px 20px; background: #2b3036; color: #eef0ec;
+  }
+  header h1 { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .02em; margin: 0; }
+  header h1 small { font-weight: 500; font-size: 15px; color: #aab1b8; margin-left: 10px; letter-spacing: 0; }
+  .links { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+  .link { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border: 1px solid #4a5159; border-radius: 2px; font-size: 13px; }
+  .link i { width: 10px; height: 10px; border-radius: 50%; background: var(--alarm); box-shadow: 0 0 0 2px #2b3036; }
+  .link.up i { background: #47b35f; }
+  .link b { font-family: var(--display); font-weight: 600; font-size: 15px; }
+  .link span { color: #aab1b8; }
+  #offline { display: none; padding: 8px 20px; background: var(--alarm); color: #fff; font-weight: 700; }
+  #offline.show { display: block; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; padding: 16px 20px 24px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+
+  .mimic { background: var(--panel); border: 1px solid #c4c8c2; border-radius: 2px; padding: 6px; }
+  .mimic svg { display: block; width: 100%; height: auto; }
+
+  .below { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 900px) { .below { grid-template-columns: 1fr; } }
+
+  h2 { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: .03em; text-transform: uppercase; margin: 0 0 10px; color: var(--ink-soft); }
+  .box { background: var(--panel); border: 1px solid #c4c8c2; border-radius: 2px; padding: 14px 16px; }
+
+  /* signals */
+  .io { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+  .io h3 { grid-column: span 2; font-family: var(--display); font-weight: 600; font-size: 14px; margin: 8px 0 2px; color: var(--ink-soft); }
+  .io h3:first-child { margin-top: 0; }
+  .sig { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 8px; font-size: 13px; padding: 1px 0; }
+  .sig i { width: 12px; height: 12px; border-radius: 50%; background: var(--off); border: 1px solid #9ca19b; }
+  .sig.on i { background: var(--run); border-color: #1f5e2c; }
+  .sig.on.red i { background: var(--alarm); border-color: #84261c; }
+  .sig.on.amber i { background: var(--wait); border-color: #8a5b00; }
+  .sig code { font-family: var(--display); font-size: 13px; color: var(--ink-soft); }
+  .sig.reg i { border-radius: 2px; background: #cfd8e3; border-color: #8ea3bb; }
+  .sig.reg b { font-variant-numeric: tabular-nums; }
+  .io .dir { grid-column: span 2; font-size: 12px; color: var(--ink-soft); margin: -2px 0 4px; }
+
+  /* results */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .tile { background: var(--sunk); border-radius: 2px; padding: 8px 10px; }
+  .tile b { display: block; font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.1; }
+  .tile span { font-size: 12px; color: var(--ink-soft); }
+  .score { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+  .score td { padding: 3px 0; border-bottom: 1px solid #dfe2dd; }
+  .score td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .score tr.bad td:last-child { color: var(--alarm); }
+  .events { list-style: none; margin: 0; padding: 0; font-size: 13px; min-height: 120px; }
+  .events li { padding: 3px 0; border-bottom: 1px dashed #d3d6d1; font-variant-numeric: tabular-nums; }
+  .events li:first-child { font-weight: 700; }
+  .events li.empty { color: var(--ink-soft); border: 0; }
+
+  /* operator panel */
+  aside { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 12px; }
+  .group { background: #3a4047; color: #eef0ec; border-radius: 4px; padding: 14px 16px 16px; }
+  .group h2 { color: #c9ced3; }
+  .group h2 em { font-style: normal; font-weight: 500; color: #9aa2aa; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  .buttons { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .pb { display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .04em; color: #dfe3e6; }
+  .pb button {
+    width: 54px; height: 54px; border-radius: 50%; border: 4px solid #22262b; cursor: pointer;
+    box-shadow: inset 0 -5px 0 rgba(0,0,0,.25), 0 2px 0 #1b1e22; touch-action: none;
+  }
+  .pb button:active, .pb button.held { box-shadow: inset 0 3px 0 rgba(0,0,0,.3); transform: translateY(2px); }
+  .pb button:focus-visible { outline: 3px solid #f3d36b; outline-offset: 2px; }
+  .pb.green button { background: #2f9a4a; }
+  .pb.red button { background: #cc3b2d; }
+  .pb.blue button { background: #2f6fb0; }
+  .pb.estop button { width: 64px; height: 64px; background: #d22d1e; border: 6px solid #f0c419; }
+  .pb.estop button.pressed { transform: translateY(4px); box-shadow: inset 0 4px 0 rgba(0,0,0,.35); background: #9b2015; }
+  .lamps { display: flex; gap: 14px; margin-top: 12px; font-size: 13px; }
+  .lamp { display: flex; align-items: center; gap: 6px; }
+  .lamp i { width: 14px; height: 14px; border-radius: 50%; background: #5b6168; border: 1px solid #22262b; }
+  .lamp.on i { background: #46c062; }
+  .lamp.on.amber i { background: #f0b429; }
+  .row { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 13px; }
+  .row label { flex: 0 0 auto; color: #c9ced3; }
+  .row input[type=range] { flex: 1; accent-color: #9fb7cf; }
+  .row output { width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+  .small { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .small button {
+    font-family: var(--body); font-size: 13px; padding: 6px 10px; border-radius: 6px; cursor: pointer;
+    background: #4c535b; color: #eef0ec; border: 1px solid #626a73;
+  }
+  .small button:hover { background: #59616a; }
+  .small button:focus-visible, .target button:focus-visible, .target input:focus-visible { outline: 3px solid #f3d36b; outline-offset: 1px; }
+  .target { display: flex; align-items: center; gap: 6px; }
+  .target input { width: 64px; padding: 5px 6px; font-size: 15px; font-weight: 700; text-align: right; border-radius: 6px; border: 1px solid #626a73; background: #f4f5f2; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .target button { width: 30px; height: 30px; border-radius: 6px; border: 1px solid #626a73; background: #4c535b; color: #eef0ec; font-size: 17px; cursor: pointer; }
+  .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
+  .toggle { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #626a73; border-radius: 6px; font-size: 13px; cursor: pointer; user-select: none; }
+  .toggle input { accent-color: #e0a800; width: 16px; height: 16px; margin: 0; }
+  .toggle.active { border-color: #e0a800; background: #4d4630; }
+  .hint { font-size: 12px; color: #aab1b8; margin-top: 8px; line-height: 1.4; }
+
+  /* svg */
+  .lbl { font-family: var(--display); font-weight: 600; font-size: 15px; fill: var(--ink); letter-spacing: .04em; }
+  .lbl-s { font-family: var(--body); font-size: 12px; fill: var(--ink-soft); }
+  .big { font-family: var(--display); font-weight: 700; font-size: 22px; fill: var(--ink); }
+  .ml { font-family: var(--display); font-weight: 700; font-size: 12px; fill: #13283f; }
+  .tag { font-family: var(--display); font-weight: 600; font-size: 12px; }
+  .banner { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: .06em; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>Bottling plant<small>run by your OpenPLC program</small></h1>
+  <div class="links">
+    <div class="link" id="link-tank"><i></i><b>Tank station</b><span class="num" id="link-tank-text">port 5020, waiting for PLC</span></div>
+    <div class="link" id="link-line"><i></i><b>Line station</b><span class="num" id="link-line-text">port 5021, waiting for PLC</span></div>
+  </div>
+</header>
+<div id="offline">The simulator program is not running. Start plant_server.py again.</div>
+
+<main>
+  <div>
+    <section class="mimic">
+      <svg id="plant" viewBox="0 0 1100 580" role="img" aria-label="Live picture of the water tank and the bottling line">
+        <!-- station titles -->
+        <text class="lbl" x="14" y="26">STATION 1  WATER TANK</text>
+        <text class="lbl" x="300" y="250">STATION 2  BOTTLING LINE</text>
+
+        <!-- supply, pump and inlet pipe -->
+        <line x1="10" y1="60" x2="42" y2="60" stroke="#8a9097" stroke-width="8"/>
+        <circle id="pump" cx="60" cy="60" r="18" fill="#b9bdb7" stroke="#3b4046" stroke-width="2"/>
+        <polygon points="52,50 52,70 70,60" fill="#3b4046"/>
+        <text class="lbl-s" x="60" y="96" text-anchor="middle">Pump</text>
+        <text id="pump-fail" class="tag" x="60" y="112" text-anchor="middle" fill="#c0392b" visibility="hidden">FAILED</text>
+        <polyline points="78,60 212,60 212,90" fill="none" stroke="#8a9097" stroke-width="8"/>
+        <line id="inflow" x1="212" y1="90" x2="212" y2="300" stroke="#2f6fb0" stroke-width="5" visibility="hidden"/>
+
+        <!-- tank -->
+        <rect id="water" x="112" y="200" width="117" height="129" fill="#2f6fb0" opacity=".55"/>
+        <rect x="110" y="90" width="120" height="240" fill="none" stroke="#3b4046" stroke-width="3"/>
+        <g id="ticks"></g>
+        <text id="level-pct" class="big num" x="157" y="122" text-anchor="middle">--</text>
+        <text id="level-l" class="lbl-s num" x="157" y="142" text-anchor="middle"></text>
+        <g id="floats"></g>
+
+        <!-- outlet pipe to the filler -->
+        <polyline points="170,330 170,350 460,350 460,362" fill="none" stroke="#8a9097" stroke-width="6"/>
+        <rect x="453" y="360" width="14" height="24" fill="#3b4046"/>
+
+        <!-- station names -->
+        <text class="lbl" x="330" y="300" text-anchor="middle">FEEDER</text>
+        <text class="lbl" x="460" y="300" text-anchor="middle">FILLER</text>
+        <text class="lbl" x="590" y="300" text-anchor="middle">CAPPER</text>
+        <text class="lbl" x="720" y="300" text-anchor="middle">QC SCAN</text>
+        <text class="lbl" x="850" y="300" text-anchor="middle">DIVERTER</text>
+        <text id="filler-note" class="tag" x="460" y="318" text-anchor="middle" fill="#c0392b"></text>
+        <text id="capper-note" class="tag" x="590" y="318" text-anchor="middle" fill="#c0392b"></text>
+        <text id="qc-note" class="tag num" x="720" y="318" text-anchor="middle" fill="#565c63"></text>
+
+        <!-- capper frame and camera -->
+        <line x1="566" y1="330" x2="614" y2="330" stroke="#3b4046" stroke-width="5"/>
+        <line id="capper-rod" x1="590" y1="330" x2="590" y2="342" stroke="#3b4046" stroke-width="4"/>
+        <rect id="capper-head" x="576" y="342" width="28" height="20" rx="2" fill="#7b838b" stroke="#3b4046"/>
+        <polygon id="flash" points="712,360 728,360 748,470 692,470" fill="#f3d36b" opacity=".45" visibility="hidden"/>
+        <rect x="702" y="328" width="36" height="22" rx="2" fill="#3b4046"/>
+        <circle cx="720" cy="354" r="7" fill="#8a9097" stroke="#3b4046" stroke-width="2"/>
+
+        <!-- feeder gate -->
+        <rect id="gate-feed" x="356" y="434" width="5" height="36" fill="#3b4046"/>
+
+        <!-- bottles are drawn here -->
+        <g id="bottles"></g>
+        <line id="stream" x1="460" y1="384" x2="460" y2="470" stroke="#2f6fb0" stroke-width="4" visibility="hidden"/>
+
+        <!-- diverter gate -->
+        <rect x="872" y="396" width="8" height="74" fill="#3b4046"/>
+        <line id="diverter-arm" x1="876" y1="402" x2="896" y2="380" stroke="#7b838b" stroke-width="7" stroke-linecap="round"/>
+
+        <!-- conveyor -->
+        <rect x="300" y="470" width="730" height="14" fill="#3b4046"/>
+        <g id="stripes"></g>
+        <circle cx="300" cy="477" r="9" fill="#7b838b" stroke="#3b4046" stroke-width="2"/>
+        <circle cx="1030" cy="477" r="9" fill="#7b838b" stroke="#3b4046" stroke-width="2"/>
+        <text id="jam-note" class="tag" x="520" y="510" text-anchor="middle" fill="#c0392b"></text>
+
+        <!-- photo-eyes under the belt -->
+        <g id="eyes"></g>
+        <text class="lbl-s" x="590" y="530" text-anchor="middle">photo-eyes</text>
+
+        <!-- reject bin and crate -->
+        <line x1="846" y1="486" x2="846" y2="503" stroke="#3b4046" stroke-width="2" stroke-dasharray="4 3"/>
+        <rect id="bin-fill" x="807" y="555" width="86" height="0" fill="#e8b4ae"/>
+        <rect x="805" y="503" width="90" height="54" fill="none" stroke="#c0392b" stroke-width="3"/>
+        <text id="bin-count" class="big num" x="850" y="537" text-anchor="middle">0</text>
+        <text class="lbl-s" x="850" y="574" text-anchor="middle">Reject bin (10)</text>
+        <g id="crate"></g>
+        <text class="lbl-s" x="1020" y="574" text-anchor="middle">Good crate (12)</text>
+
+        <!-- stack light -->
+        <line x1="1060" y1="146" x2="1060" y2="250" stroke="#3b4046" stroke-width="5"/>
+        <circle id="sl-red" cx="1060" cy="84" r="12" stroke="#3b4046" stroke-width="2"/>
+        <circle id="sl-amber" cx="1060" cy="110" r="12" stroke="#3b4046" stroke-width="2"/>
+        <circle id="sl-green" cx="1060" cy="136" r="12" stroke="#3b4046" stroke-width="2"/>
+        <text class="lbl-s" x="1038" y="114" text-anchor="end">stack light</text>
+
+        <!-- big message -->
+        <text id="banner" class="banner" x="660" y="150" text-anchor="middle"></text>
+        <text id="banner-sub" class="lbl-s" x="660" y="174" text-anchor="middle"></text>
+      </svg>
+    </section>
+
+    <div class="below">
+      <section class="box">
+        <h2>Signals</h2>
+        <div class="io" id="io"></div>
+      </section>
+      <section class="box">
+        <h2>Results</h2>
+        <div class="tiles">
+          <div class="tile"><b class="num" id="t-crate">0/12</b><span>in this crate</span></div>
+          <div class="tile"><b class="num" id="t-crates">0</b><span>full crates</span></div>
+          <div class="tile"><b class="num" id="t-rate">0</b><span>bottles per minute</span></div>
+        </div>
+        <table class="score">
+          <tr><td>Good bottles shipped</td><td id="s-good">0</td></tr>
+          <tr><td>Bad bottles rejected</td><td id="s-rej">0</td></tr>
+          <tr class="bad"><td>Bad bottles shipped (PLC mistake)</td><td id="s-badship">0</td></tr>
+          <tr class="bad"><td>Good bottles rejected (PLC mistake)</td><td id="s-goodrej">0</td></tr>
+          <tr class="bad"><td>Bottles on the floor</td><td id="s-broken">0</td></tr>
+          <tr><td>Water spilled</td><td id="s-spill">0 ml</td></tr>
+        </table>
+        <h2>Events</h2>
+        <ul class="events" id="events"><li class="empty">Nothing yet. Start the tank and the line.</li></ul>
+      </section>
+    </div>
+  </div>
+
+  <aside>
+    <section class="group">
+      <h2>Water tank<em>station 1</em></h2>
+      <div class="buttons">
+        <div class="pb green"><button data-hold="TANK_START" aria-label="Tank start"></button>START</div>
+        <div class="pb red"><button data-hold="TANK_STOP" aria-label="Tank stop"></button>STOP</div>
+      </div>
+      <div class="lamps">
+        <div class="lamp" id="lamp-pump"><i></i>PUMP</div>
+        <div class="lamp amber" id="lamp-full"><i></i>FULL</div>
+      </div>
+      <div class="row"><label for="other">Other water use</label><input id="other" type="range" min="0" max="100" value="0"><output id="other-out" class="num">0 %</output></div>
+      <div class="small">
+        <button data-cmd="tank_level" data-value="10">Drain to 10 %</button>
+        <button data-cmd="tank_level" data-value="50">Fill to 50 %</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Bottling line<em>station 2</em></h2>
+      <div class="buttons">
+        <div class="pb green"><button data-hold="LINE_START" aria-label="Line start"></button>START</div>
+        <div class="pb red"><button data-hold="LINE_STOP" aria-label="Line stop"></button>STOP</div>
+        <div class="pb blue"><button data-hold="ALARM_RESET" aria-label="Alarm reset"></button>RESET</div>
+        <div class="pb estop"><button id="estop" aria-label="Emergency stop" aria-pressed="false"></button>E-STOP</div>
+      </div>
+      <div class="row">
+        <label for="target">Fill target</label>
+        <div class="target">
+          <button id="target-down" aria-label="10 ml less">&minus;</button>
+          <input id="target" type="number" min="100" max="750" step="10" value="700">
+          <button id="target-up" aria-label="10 ml more">+</button>
+        </div>
+        <span>ml</span>
+      </div>
+      <div class="small">
+        <button data-cmd="swap_crate">Swap crate</button>
+        <button data-cmd="empty_bin">Empty reject bin</button>
+        <button data-cmd="clear_belt">Clear belt</button>
+      </div>
+      <p class="hint">Hold a button down like a real push button. The E-stop latches: click it again to release it.</p>
+    </section>
+
+    <section class="group">
+      <h2>Faults and defects</h2>
+      <div class="row"><label for="defects">Damaged bottles</label><input id="defects" type="range" min="0" max="30" value="5"><output id="defects-out" class="num">5 %</output></div>
+      <div class="small">
+        <button data-cmd="next_defect" data-value="crack">Next bottle cracked</button>
+        <button data-cmd="next_defect" data-value="dent">Next bottle dented</button>
+      </div>
+      <div class="toggles">
+        <label class="toggle" id="tg-jam"><input type="checkbox" data-fault="jam">Jam the conveyor</label>
+        <label class="toggle" id="tg-clog"><input type="checkbox" data-fault="clog">Clog the nozzle</label>
+        <label class="toggle" id="tg-pump_fail"><input type="checkbox" data-fault="pump_fail">Break supply pump</label>
+        <label class="toggle" id="tg-no_caps"><input type="checkbox" data-fault="no_caps">Capper out of caps</label>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const COLORS = { water: "#2f6fb0", run: "#2e8540", wait: "#c98400", alarm: "#c0392b", off: "#b9bdb7", dark: "#3b4046" };
+const TANK = { x0: 110, x1: 230, top: 90, bottom: 330 };
+let G = null;
+
+const IO = [
+  { title: "Tank station inputs", dir: "simulator → PLC", kind: "tank_inputs", items: [
+    ["TANK_START", "%IX0.0"], ["TANK_STOP", "%IX0.1"], ["LOW_LEVEL", "%IX0.2"], ["HIGH_LEVEL", "%IX0.3"]] },
+  { title: "Tank station coils", dir: "PLC → simulator", kind: "tank_coils", items: [
+    ["PUMP", "%QX0.0"], ["FULL_LAMP", "%QX0.1", "amber"]] },
+  { title: "Line station inputs", dir: "simulator → PLC", kind: "line_inputs", items: [
+    ["LINE_START", "%IX0.4"], ["LINE_STOP", "%IX0.5"], ["ESTOP_OK", "%IX0.6"], ["ALARM_RESET", "%IX0.7"],
+    ["BOTTLE_AT_FILLER", "%IX1.0"], ["BOTTLE_AT_CAPPER", "%IX1.1"], ["BOTTLE_AT_QC", "%IX1.2"],
+    ["QC_DONE", "%IX1.3"], ["QC_DAMAGE", "%IX1.4", "red"], ["QC_NO_CAP", "%IX1.5", "red"],
+    ["BOTTLE_IN_CRATE", "%IX1.6"], ["BOTTLE_IN_REJECT", "%IX1.7"], ["CRATE_PRESENT", "%IX2.0"]] },
+  { title: "Line station registers", dir: "simulator → PLC (numbers)", kind: "line_registers", reg: true, items: [
+    ["FILLER_ML", "%IW0"], ["QC_ML", "%IW1"], ["TARGET_ML", "%IW2"]] },
+  { title: "Line station coils", dir: "PLC → simulator", kind: "line_coils", items: [
+    ["BOTTLE_RELEASE", "%QX0.2"], ["CONVEYOR", "%QX0.3"], ["FILL_FAST", "%QX0.4"], ["FILL_SLOW", "%QX0.5"],
+    ["CAPPER", "%QX0.6"], ["QC_SCAN", "%QX0.7"], ["DIVERTER", "%QX1.0", "amber"], ["GREEN_LAMP", "%QX1.1"],
+    ["AMBER_LAMP", "%QX1.2", "amber"], ["RED_LAMP", "%QX1.3", "red"]] },
+];
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const $ = id => document.getElementById(id);
+const levelY = p => TANK.bottom - (TANK.bottom - TANK.top) * p / 100;
+
+function send(body) {
+  return fetch("/cmd", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .catch(() => {});
+}
+
+/* ---------- build the static parts that depend on numbers ---------- */
+function buildStatic() {
+  const ticks = $("ticks");
+  for (const p of [0, 25, 50, 75, 100]) {
+    const y = levelY(p);
+    el("line", { x1: TANK.x1, y1: y, x2: TANK.x1 + 8, y2: y, stroke: COLORS.dark }, ticks);
+    el("text", { x: TANK.x1 + 12, y: y + 4, class: "lbl-s num" }, ticks).textContent = p + " %";
+  }
+  const floats = $("floats");
+  for (const [p, name, id] of [[G.high_switch, "HIGH", "fl-high"], [G.low_switch, "LOW", "fl-low"]]) {
+    const y = levelY(p);
+    el("line", { x1: TANK.x0 - 14, y1: y, x2: TANK.x0, y2: y, stroke: COLORS.dark, "stroke-width": 2 }, floats);
+    el("circle", { id, cx: TANK.x0 - 21, cy: y, r: 7, fill: COLORS.off, stroke: COLORS.dark }, floats);
+    el("text", { x: TANK.x0 - 32, y: y + 4, "text-anchor": "end", class: "lbl-s" }, floats).textContent = name + " " + p + " %";
+  }
+  const eyes = $("eyes");
+  for (const key of ["filler", "capper", "qc"]) {
+    el("circle", { id: "eye-" + key, cx: G[key] + G.eye_offset, cy: 496, r: 6, fill: COLORS.off, stroke: COLORS.dark }, eyes);
+  }
+  const io = $("io");
+  for (const group of IO) {
+    const h = document.createElement("h3"); h.textContent = group.title; io.appendChild(h);
+    const d = document.createElement("div"); d.className = "dir"; d.textContent = group.dir; io.appendChild(d);
+    for (const [name, addr, tone] of group.items) {
+      const row = document.createElement("div");
+      row.className = "sig" + (group.reg ? " reg" : "") + (tone ? " " + tone : "");
+      row.id = "sig-" + name;
+      row.innerHTML = "<i></i><span></span><code></code>";
+      row.querySelector("span").textContent = name;
+      row.querySelector("code").textContent = addr;
+      if (group.reg) { const b = document.createElement("b"); b.className = "num"; row.querySelector("span").append(" = ", b); }
+      io.appendChild(row);
+    }
+  }
+}
+
+/* ---------- draw one bottle ---------- */
+function drawBottle(parent, b, target) {
+  const by = G.belt_y, w = G.bottle_w, h = 62, x0 = b.x - w / 2;
+  const top = by - h;
+  const g = el("g", {}, parent);
+  const water = h * Math.min(b.ml, G.capacity) / G.capacity;
+  if (water > 0) el("rect", { x: x0 + 2, y: by - water, width: w - 4, height: water - 1, fill: COLORS.water, opacity: .6 }, g);
+  el("rect", { x: x0, y: top, width: w, height: h, rx: 5, fill: "none", stroke: "#2b3036", "stroke-width": 2 }, g);
+  el("rect", { x: b.x - 6, y: top - 14, width: 12, height: 14, fill: "#f4f5f2", stroke: "#2b3036", "stroke-width": 2 }, g);
+  if (b.capped) el("rect", { x: b.x - 8, y: top - 20, width: 16, height: 7, rx: 1, fill: "#d35400", stroke: "#2b3036" }, g);
+  const ty = by - h * target / G.capacity;
+  el("line", { x1: x0 - 3, y1: ty, x2: x0 + w + 3, y2: ty, stroke: "#c98400", "stroke-width": 1.5, "stroke-dasharray": "4 3" }, g);
+  if (b.defect === "crack") {
+    el("polyline", { points: `${b.x - 8},${top + 8} ${b.x + 2},${top + 22} ${b.x - 5},${top + 34} ${b.x + 6},${top + 50}`,
+      fill: "none", stroke: COLORS.alarm, "stroke-width": 2 }, g);
+  }
+  if (b.defect === "dent") {
+    el("path", { d: `M${x0} ${top + 18} Q${x0 + 10} ${top + 27} ${x0} ${top + 36}`, fill: "#f4f5f2", stroke: COLORS.alarm, "stroke-width": 2 }, g);
+  }
+  el("text", { x: b.x, y: by - 6, "text-anchor": "middle", class: "ml num" }, g).textContent = b.ml;
+  if (b.tag) {
+    el("text", { x: b.x, y: top - 28, "text-anchor": "middle", class: "tag", fill: b.bad ? COLORS.alarm : COLORS.run }, g)
+      .textContent = b.bad ? b.tag : "OK";
+  }
+}
+
+/* ---------- update everything from one state message ---------- */
+function setLamp(id, on) { $(id).classList.toggle("on", !!on); }
+
+function render(s) {
+  // links
+  for (const k of ["tank", "line"]) {
+    const L = s.links[k];
+    $("link-" + k).classList.toggle("up", L.up);
+    $("link-" + k + "-text").textContent = "port " + L.port + (L.up ? ", PLC connected, " + L.requests + " requests" : ", waiting for PLC");
+  }
+
+  // tank
+  const y = levelY(s.level);
+  $("water").setAttribute("y", y);
+  $("water").setAttribute("height", Math.max(0, TANK.bottom - 1 - y));
+  $("level-pct").textContent = s.level.toFixed(1) + " %";
+  $("level-l").textContent = (s.level * G.tank_liters / 100).toFixed(1) + " L of " + G.tank_liters + " L";
+  const pumpOn = s.tank_coils.PUMP;
+  $("pump").setAttribute("fill", pumpOn ? (s.pump_fail ? COLORS.alarm : COLORS.run) : COLORS.off);
+  $("inflow").setAttribute("y2", y);
+  $("inflow").setAttribute("visibility", pumpOn && !s.pump_fail ? "visible" : "hidden");
+  $("pump-fail").setAttribute("visibility", s.pump_fail ? "visible" : "hidden");
+  $("fl-high").setAttribute("fill", s.tank_inputs.HIGH_LEVEL ? COLORS.run : COLORS.off);
+  $("fl-low").setAttribute("fill", s.tank_inputs.LOW_LEVEL ? COLORS.run : COLORS.off);
+  setLamp("lamp-pump", pumpOn);
+  setLamp("lamp-full", s.tank_coils.FULL_LAMP);
+
+  // belt stripes
+  const stripes = $("stripes"); stripes.replaceChildren();
+  for (let x = G.belt_start + 6 + s.belt_offset; x < G.belt_end - 8; x += 24) {
+    el("line", { x1: x, y1: 473, x2: x + 7, y2: 481, stroke: "#6c727a", "stroke-width": 2 }, stripes);
+  }
+
+  // bottles
+  const bottles = $("bottles"); bottles.replaceChildren();
+  for (const b of s.bottles) drawBottle(bottles, b, s.target);
+
+  // filler stream
+  const stream = $("stream");
+  if (s.flow > 0) {
+    let bottom = G.belt_y;
+    for (const b of s.bottles) if (Math.abs(b.x - G.filler) <= 24) bottom = G.belt_y - 62 * Math.min(b.ml, G.capacity) / G.capacity;
+    stream.setAttribute("y2", bottom);
+    stream.setAttribute("stroke-width", s.flow > 50 ? 5 : 2);
+    stream.setAttribute("visibility", "visible");
+  } else stream.setAttribute("visibility", "hidden");
+  $("filler-note").textContent = s.dry ? "NO WATER" : (s.faults.clog ? "CLOGGED" : "");
+  $("capper-note").textContent = s.faults.no_caps ? "NO CAPS" : "";
+  $("qc-note").textContent = s.last_scan.replace(/^Bottle \d+: /, "");
+  $("jam-note").textContent = s.faults.jam ? "CONVEYOR JAMMED" : "";
+
+  // feeder gate, capper, camera, diverter
+  const rel = s.line_coils.BOTTLE_RELEASE;
+  $("gate-feed").setAttribute("y", rel ? 400 : 434);
+  const headBottom = 362 + 26 * s.capper_pos;
+  $("capper-head").setAttribute("y", headBottom - 20);
+  $("capper-rod").setAttribute("y2", headBottom - 20);
+  $("capper-head").setAttribute("fill", s.line_coils.CAPPER ? "#5a8f6a" : "#7b838b");
+  $("flash").setAttribute("visibility", s.scanning ? "visible" : "hidden");
+  const p = s.gate_pos;
+  $("diverter-arm").setAttribute("x2", 896 + (836 - 896) * p);
+  $("diverter-arm").setAttribute("y2", 380 + (462 - 380) * p);
+  $("diverter-arm").setAttribute("stroke", s.line_coils.DIVERTER ? COLORS.wait : "#7b838b");
+
+  // photo-eyes
+  $("eye-filler").setAttribute("fill", s.line_inputs.BOTTLE_AT_FILLER ? COLORS.run : COLORS.off);
+  $("eye-capper").setAttribute("fill", s.line_inputs.BOTTLE_AT_CAPPER ? COLORS.run : COLORS.off);
+  $("eye-qc").setAttribute("fill", s.line_inputs.BOTTLE_AT_QC ? COLORS.run : COLORS.off);
+
+  // crate and bin
+  const crate = $("crate"); crate.replaceChildren();
+  if (s.crate.present) {
+    el("rect", { x: 960, y: 503, width: 120, height: 54, fill: "none", stroke: "#7a5230", "stroke-width": 3 }, crate);
+    for (let i = 0; i < G.crate_size; i++) {
+      const cx = 968 + (i % 6) * 18, cy = 508 + Math.floor(i / 6) * 24;
+      el("rect", { x: cx, y: cy, width: 14, height: 20, rx: 2, fill: i < s.crate.count ? COLORS.water : "none",
+        opacity: i < s.crate.count ? .75 : 1, stroke: "#7a5230" }, crate);
+    }
+  } else {
+    el("text", { x: 1020, y: 535, "text-anchor": "middle", class: "tag", fill: COLORS.wait }, crate).textContent = "crate away";
+  }
+  const binH = 52 * s.bin / G.bin_size;
+  $("bin-fill").setAttribute("y", 556 - binH);
+  $("bin-fill").setAttribute("height", binH);
+  $("bin-count").textContent = s.bin;
+
+  // stack light
+  $("sl-red").setAttribute("fill", s.line_coils.RED_LAMP ? "#e2412f" : "#e3c1bc");
+  $("sl-amber").setAttribute("fill", s.line_coils.AMBER_LAMP ? "#f0a500" : "#eadcbc");
+  $("sl-green").setAttribute("fill", s.line_coils.GREEN_LAMP ? "#2fae4e" : "#c3d8c7");
+
+  // big message: the most important thing first
+  let banner = "", sub = "", color = COLORS.alarm;
+  if (!s.links.tank.up || !s.links.line.up) { banner = "WAITING FOR THE PLC"; sub = "Start the OpenPLC Runtime and your program"; color = COLORS.dark; }
+  else if (s.estop) { banner = "E-STOP PRESSED"; sub = "Release the E-stop, press RESET, then START"; }
+  else if (s.line_coils.RED_LAMP) { banner = "LINE FAULT"; sub = "Fix the cause, press RESET, then START"; }
+  else if (s.dry) { banner = "TANK EMPTY"; sub = "The filler is open but there is no water"; color = COLORS.wait; }
+  $("banner").textContent = banner; $("banner").setAttribute("fill", color);
+  $("banner-sub").textContent = sub;
+
+  // signals
+  for (const group of IO) {
+    const values = s[group.kind] || {};
+    for (const [name] of group.items) {
+      const row = $("sig-" + name);
+      if (group.reg) { row.querySelector("b").textContent = values[name] ?? "-"; }
+      else row.classList.toggle("on", !!values[name]);
+    }
+  }
+
+  // results
+  $("t-crate").textContent = s.crate.count + "/" + G.crate_size;
+  $("t-crates").textContent = s.crate.done;
+  $("t-rate").textContent = s.per_minute;
+  $("s-good").textContent = s.score.good_shipped;
+  $("s-rej").textContent = s.score.bad_rejected;
+  $("s-badship").textContent = s.score.bad_shipped;
+  $("s-goodrej").textContent = s.score.good_rejected;
+  $("s-broken").textContent = s.score.broken;
+  $("s-spill").textContent = s.spilled + " ml";
+  const ev = $("events");
+  if (s.events.length) {
+    ev.replaceChildren(...s.events.map(t => { const li = document.createElement("li"); li.textContent = t; return li; }));
+  }
+
+  // keep the controls in step with the simulator
+  $("estop").classList.toggle("pressed", s.estop);
+  $("estop").setAttribute("aria-pressed", s.estop);
+  for (const f of ["jam", "clog", "pump_fail", "no_caps"]) {
+    const box = document.querySelector(`[data-fault="${f}"]`);
+    if (document.activeElement !== box) box.checked = s.faults[f];
+    $("tg-" + f).classList.toggle("active", s.faults[f]);
+  }
+  if (document.activeElement !== $("target")) $("target").value = s.target;
+  if (document.activeElement !== $("other")) { $("other").value = s.other_use; $("other-out").textContent = Math.round(s.other_use) + " %"; }
+  if (document.activeElement !== $("defects")) { $("defects").value = s.defect_rate; $("defects-out").textContent = Math.round(s.defect_rate) + " %"; }
+}
+
+/* ---------- controls ---------- */
+function wireControls() {
+  document.querySelectorAll("[data-hold]").forEach(btn => {
+    const name = btn.dataset.hold;
+    const down = e => { e.preventDefault(); btn.setPointerCapture?.(e.pointerId); btn.classList.add("held"); send({ cmd: "button", name, value: true }); };
+    const up = () => { if (!btn.classList.contains("held")) return; btn.classList.remove("held"); send({ cmd: "button", name, value: false }); };
+    btn.addEventListener("pointerdown", down);
+    btn.addEventListener("pointerup", up);
+    btn.addEventListener("pointercancel", up);
+    btn.addEventListener("lostpointercapture", up);
+    btn.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { btn.classList.add("held"); send({ cmd: "button", name, value: true }); } });
+    btn.addEventListener("keyup", e => { if (e.key === " " || e.key === "Enter") up(); });
+  });
+  window.addEventListener("blur", () => document.querySelectorAll("[data-hold].held").forEach(b => {
+    b.classList.remove("held"); send({ cmd: "button", name: b.dataset.hold, value: false });
+  }));
+  $("estop").addEventListener("click", () => send({ cmd: "estop", value: !$("estop").classList.contains("pressed") }));
+  document.querySelectorAll("[data-cmd]").forEach(btn => btn.addEventListener("click", () =>
+    send({ cmd: btn.dataset.cmd, value: btn.dataset.value === undefined ? true : btn.dataset.value })));
+  document.querySelectorAll("[data-fault]").forEach(box => box.addEventListener("change", () => send({ cmd: box.dataset.fault, value: box.checked })));
+  const setTarget = v => { v = Math.max(100, Math.min(750, Math.round(v / 10) * 10)); $("target").value = v; send({ cmd: "target", value: v }); };
+  $("target-down").addEventListener("click", () => setTarget(+$("target").value - 10));
+  $("target-up").addEventListener("click", () => setTarget(+$("target").value + 10));
+  $("target").addEventListener("change", () => setTarget(+$("target").value || 700));
+  $("other").addEventListener("input", () => { $("other-out").textContent = $("other").value + " %"; send({ cmd: "other_use", value: +$("other").value }); });
+  $("defects").addEventListener("input", () => { $("defects-out").textContent = $("defects").value + " %"; send({ cmd: "defect_rate", value: +$("defects").value }); });
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/state", { cache: "no-store" });
+    render(await r.json());
+    $("offline").classList.remove("show");
+  } catch (e) {
+    $("offline").classList.add("show");
+  }
+  setTimeout(poll, 100);
+}
+
+(async function start() {
+  for (;;) {
+    try { G = await (await fetch("/geometry")).json(); break; }
+    catch (e) { $("offline").classList.add("show"); await new Promise(r => setTimeout(r, 1000)); }
+  }
+  buildStatic();
+  wireControls();
+  poll();
+})();
+</script>
+</body>
+</html>

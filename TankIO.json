@@ -1,0 +1,76 @@
+{
+  "name": "TankIO",
+  "protocol": "modbus-tcp",
+  "modbusTcpConfig": {
+    "host": "host.docker.internal",
+    "port": 5020,
+    "timeout": 1000,
+    "slaveId": 1,
+    "ioGroups": [
+      {
+        "id": "bf97b4cf-4771-484b-bcd9-1384843919f8",
+        "name": "Inputs",
+        "functionCode": "2",
+        "cycleTime": 100,
+        "offset": "0",
+        "length": 4,
+        "errorHandling": "set-to-zero",
+        "ioPoints": [
+          {
+            "id": "Inputs_0",
+            "name": "Inputs_0",
+            "type": "Digital Input (Discrete Input)",
+            "iecLocation": "%IX0.0",
+            "alias": ""
+          },
+          {
+            "id": "Inputs_1",
+            "name": "Inputs_1",
+            "type": "Digital Input (Discrete Input)",
+            "iecLocation": "%IX0.1",
+            "alias": ""
+          },
+          {
+            "id": "Inputs_2",
+            "name": "Inputs_2",
+            "type": "Digital Input (Discrete Input)",
+            "iecLocation": "%IX0.2",
+            "alias": ""
+          },
+          {
+            "id": "Inputs_3",
+            "name": "Inputs_3",
+            "type": "Digital Input (Discrete Input)",
+            "iecLocation": "%IX0.3",
+            "alias": ""
+          }
+        ]
+      },
+      {
+        "id": "d1e39fea-9623-4a23-b126-8117afc97732",
+        "name": "Outputs",
+        "functionCode": "15",
+        "cycleTime": 100,
+        "offset": "0",
+        "length": 2,
+        "errorHandling": "keep-last-value",
+        "ioPoints": [
+          {
+            "id": "Outputs_0",
+            "name": "Outputs_0",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX0.0",
+            "alias": ""
+          },
+          {
+            "id": "Outputs_1",
+            "name": "Outputs_1",
+            "type": "Digital Output (Multiple Coils)",
+            "iecLocation": "%QX0.1",
+            "alias": ""
+          }
+        ]
+      }
+    ]
+  }
+}
