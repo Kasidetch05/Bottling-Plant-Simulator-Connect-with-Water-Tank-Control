@@ -1,4 +1,4 @@
-# Bottling-Plant-Simulator-Connect-with-Water-Tank-Control
+# # Bottling Plant Simulator – Connected to Water Tank Control
 
 My second PLC project. A water bottling line fills, caps and checks bottles, then sorts them into a good crate or a reject bin.
 It takes its water from the tank in my first project, so one PLC program controls both.
