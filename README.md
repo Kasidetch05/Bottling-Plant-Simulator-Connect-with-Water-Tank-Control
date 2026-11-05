@@ -36,14 +36,30 @@ The water tank works the same as in my first project: the pump keeps it between 
 If filling takes more than 20 s, the bottle moves on and QC rejects it.
 
 
-## Folders
+## Files
 
-- `BottlingPlant/` – OpenPLC Editor project (37 rungs in `pous/programs/main.ld`)
-- `PlantSimulator/`
-  - `plant_io.py` – the Modbus TCP connection to the PLC
-  - `plant_server.py` – moves the water and the bottles, and runs the web page
-  - `plant_view.html` – the plant picture and operator buttons
-  - `Start Plant.bat` – double-click to start
+The files are all in one place here. After downloading, put them in these folders.
+
+**PLC project** (open the `BottlingPlant` folder in OpenPLC Editor):
+
+```
+BottlingPlant/
+├── project.json
+├── pous/programs/main.ld        (37 rungs of ladder logic)
+└── devices/
+    ├── configuration.json
+    ├── pin-mapping.json
+    └── remote/
+        ├── TankIO.json
+        └── BottleIO.json
+```
+
+**Plant Simulator** (keep these 4 files together in a `PlantSimulator` folder):
+
+- `plant_io.py` – the Modbus TCP connection to the PLC
+- `plant_server.py` – moves the water and the bottles, and runs the web page
+- `plant_view.html` – the plant picture and operator buttons
+- `Start Plant.bat` – double-click to start
 
 <details>
 <summary><b>Full I/O list</b></summary>
